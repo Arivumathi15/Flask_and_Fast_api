@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imagefast
+  labels:
+    app: fastlabel
+spec:
+  selector:
+    matchLabels:
+      app: imagefastlabel
+  template:
+    metadata:
+      labels:
+        app: imagefastlabel
+        description: This_is_a_simple_app
+    spec:
+      containers:
+      - name: imagefast
+        image: asia-southeast1-docker.pkg.dev/platform-prod-390407/sentientgar/fast_image:v0.0.1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: port1
+          protocol: TCP
+        resources:
+          limits:
+            cpu: "1"
+            memory: 12Gi
+            # nvidia.com/gpu: "1"
+          requests:
+            cpu: "1"
+            memory: 10Gi
+        volumeMounts:
+        - mountPath: "/imagefast"
+          name: imagefast-pv-storage
+      initContainers:
+        - name: init-wasabi
+          image: asia-southeast1-docker.pkg.dev/platform-prod-390407/sentientgar/wasabi-init:v0.0.9
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+          - mountPath: "/imagefast"
+            name: imagefast-pv-storage
+            readOnly: false
+          command: ['/bin/sh', '-c', 'if [ !$(-d /dir)]; then python3 main.py fi || echo "Not Empty"; fi']
+          env:
+          - name: WASABI_URL
+            valueFrom:
+              secretKeyRef:
+                name: wasabicredentials
+                key: wasabiurl
+          - name: WASABI_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: wasabicredentials
+                key: wasabiaccesskey
+          - name: WASABI_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: wasabicredentials
+                key: wasabisecretkey
+          - name: MOUNT_PATH
+            value: /imagefast
+          - name: BUCKET_NAME
+            value: science-models
+          - name: BUCKET_FOLDER
+            value: models--facebook--deit-tiny-patch16-224
+          - name: MS_TYPE
+            value: testing
+      volumes:
+      - name: imagefast-pv-storage
+        persistentVolumeClaim:
+          claimName: imagefast-v0.1.0-pv-claim
+          readOnly: false
